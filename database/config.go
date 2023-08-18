@@ -1,11 +1,11 @@
 package database
 
-type connectionConfig func(connection *Connection)
+type ConnectionConfigurator func(connection *Connection)
 
-type PreRunFunc func(statement string, parameters map[string]any) error
+type PreRunHook func(statement string, parameters map[string]any) error
 
-func WithPreRunFunc(preRunFunc PreRunFunc) connectionConfig {
+func WithPreRunHook(preRunHook PreRunHook) ConnectionConfigurator {
 	return func(connection *Connection) {
-		connection.preRunFuncs = append(connection.preRunFuncs, preRunFunc)
+		connection.preRunHooks = append(connection.preRunHooks, preRunHook)
 	}
 }

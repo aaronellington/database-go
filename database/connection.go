@@ -9,11 +9,11 @@ import (
 
 func NewConnection(
 	db *sqlx.DB,
-	configOptions ...connectionConfig,
+	configOptions ...ConnectionConfigurator,
 ) *Connection {
 	connection := &Connection{
 		db:          db,
-		preRunFuncs: []PreRunFunc{},
+		preRunHooks: []PreRunHook{},
 	}
 
 	for _, configOption := range configOptions {
@@ -25,7 +25,7 @@ func NewConnection(
 
 type Connection struct {
 	db          *sqlx.DB
-	preRunFuncs []PreRunFunc
+	preRunHooks []PreRunHook
 }
 
 func (c *Connection) Select(ctx context.Context, target any, statement string, parameters map[string]any) error {
@@ -35,8 +35,8 @@ func (c *Connection) Select(ctx context.Context, target any, statement string, p
 		parameters = map[string]any{}
 	}
 
-	for _, preRunFunc := range c.preRunFuncs {
-		if err := preRunFunc(statement, parameters); err != nil {
+	for _, preRunHook := range c.preRunHooks {
+		if err := preRunHook(statement, parameters); err != nil {
 			return err
 		}
 	}
@@ -60,8 +60,8 @@ func (c *Connection) Execute(ctx context.Context, statement string, parameters m
 		parameters = map[string]any{}
 	}
 
-	for _, preRunFunc := range c.preRunFuncs {
-		if err := preRunFunc(statement, parameters); err != nil {
+	for _, preRunHook := range c.preRunHooks {
+		if err := preRunHook(statement, parameters); err != nil {
 			return nil, err
 		}
 	}

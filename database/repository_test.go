@@ -28,8 +28,7 @@ type OrderRepository struct {
 }
 
 func TestFoobar(t *testing.T) {
-	connection, cleanUp := getTestConnection()
-	defer cleanUp()
+	connection := getTestConnection(t)
 
 	orderRepo := OrderRepository{
 		helper: database.NewRepository[Order](connection),
@@ -51,7 +50,7 @@ func TestFoobar(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(orders) == 0 {
+	if len(orders) != 1 {
 		t.Fatal("no orders found")
 	}
 }

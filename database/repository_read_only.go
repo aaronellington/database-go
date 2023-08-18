@@ -17,10 +17,7 @@ type ReadOnlyRepository[T Entity] struct {
 }
 
 func (repo ReadOnlyRepository[T]) Find(ctx context.Context, query Query, parameters map[string]any) ([]T, error) {
-	// Override the values we need
-	query.Select = repo.queryStatement.Select
-	query.From = repo.queryStatement.From
-	query.Join = repo.queryStatement.Join
+	repo.fixQuery(&query)
 
 	target := []T(nil)
 
@@ -32,10 +29,7 @@ func (repo ReadOnlyRepository[T]) Find(ctx context.Context, query Query, paramet
 }
 
 func (repo ReadOnlyRepository[T]) FindOne(ctx context.Context, query Query, parameters map[string]any) (T, error) {
-	// Override the values we need
-	query.Select = repo.queryStatement.Select
-	query.From = repo.queryStatement.From
-	query.Join = repo.queryStatement.Join
+	repo.fixQuery(&query)
 
 	target := []T(nil)
 
@@ -44,4 +38,11 @@ func (repo ReadOnlyRepository[T]) FindOne(ctx context.Context, query Query, para
 	}
 
 	return target[0], nil
+}
+
+func (repo ReadOnlyRepository[T]) fixQuery(query *Query) {
+	// Override the values we need
+	query.Select = repo.queryStatement.Select
+	query.From = repo.queryStatement.From
+	query.Join = repo.queryStatement.Join
 }

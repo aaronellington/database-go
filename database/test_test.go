@@ -7,12 +7,14 @@ import (
 	"log"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/aaronellington/database-go/database"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/ory/dockertest"
+	"github.com/ory/dockertest/docker"
 )
 
 type DatabaseConfig struct {
@@ -34,9 +36,7 @@ func (config DatabaseConfig) DSN() string {
 	)
 }
 
-func getTestConnection() (*database.Connection, func()) {
-	var db *sqlx.DB
-
+func getTestConnection(t *testing.T, configurators ...database.ConnectionConfigurator) *database.Connection {
 	pool, err := dockertest.NewPool("")
 	if err != nil {
 		panic(err)
@@ -47,7 +47,22 @@ func getTestConnection() (*database.Connection, func()) {
 		panic(err)
 	}
 
-	resource, err := pool.Run("mysql", "5.7", []string{"MYSQL_ROOT_PASSWORD=secret"})
+	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
+		Repository: "mysql",
+		Tag:        "5.7",
+		Env:        []string{"MYSQL_ROOT_PASSWORD=secret"},
+	}, func(hc *docker.HostConfig) {
+		hc.Mounts = append(hc.Mounts,
+			docker.HostMount{
+				Type:   "tmpfs",
+				Target: "/var/lib/mysql",
+			},
+			docker.HostMount{
+				Type:   "tmpfs",
+				Target: "/var/log/mysql",
+			},
+		)
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -55,6 +70,8 @@ func getTestConnection() (*database.Connection, func()) {
 	if err := mysql.SetLogger(log.New(io.Discard, "", log.LstdFlags)); err != nil {
 		panic(err)
 	}
+
+	var db *sqlx.DB
 
 	if err := pool.Retry(func() error {
 		var err error
@@ -77,12 +94,19 @@ func getTestConnection() (*database.Connection, func()) {
 
 	db.SetConnMaxLifetime(time.Minute * 1)
 
-	connection := database.NewConnection(db, database.WithPreRunFunc(func(statement string, parameters map[string]any) error {
-		log.Print(statement)
-		log.Print(parameters)
+	configurators = append(
+		[]database.ConnectionConfigurator{
+			database.WithPreRunHook(func(statement string, parameters map[string]any) error {
+				log.Print(statement)
+				log.Print(parameters)
 
-		return nil
-	}))
+				return nil
+			}),
+		},
+		configurators...,
+	)
+
+	connection := database.NewConnection(db, configurators...)
 
 	fileContents, err := os.ReadFile("test_files/base.sql")
 	if err != nil {
@@ -101,9 +125,11 @@ func getTestConnection() (*database.Connection, func()) {
 		}
 	}
 
-	return connection, func() {
+	t.Cleanup(func() {
 		if err := pool.Purge(resource); err != nil {
 			panic(err)
 		}
-	}
+	})
+
+	return connection
 }
