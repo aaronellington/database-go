@@ -45,6 +45,7 @@ func (c *Connection) Select(ctx context.Context, target any, statement string, p
 	if err != nil {
 		return err
 	}
+	defer s.Close()
 
 	if err := s.Select(target, parameters); err != nil {
 		return err
